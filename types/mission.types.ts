@@ -31,3 +31,7 @@ export interface CreateMissionInput {
   max_participants: number;
   image_url?: string;
 }
+export interface MissionWithUserStatus extends Mission {
+  isUserRegistered?: boolean;
+  userParticipationId?: string;
+}

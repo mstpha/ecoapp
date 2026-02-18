@@ -25,7 +25,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       },
-      "package": "com.ecoaction.app"
+      "package": "com.ecoaction.app",
     },
     "web": {
       "favicon": "./assets/favicon.png",

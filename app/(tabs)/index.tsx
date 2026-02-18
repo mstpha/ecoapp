@@ -5,17 +5,28 @@ import { MissionFilters } from '@/components/MissionFilters';
 import { SearchBar } from '@/components/SearchBar';
 import { useMissions } from '@/hooks/useMissions';
 import { MissionCategory } from '@/types/mission.types';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 export default function ExploreScreen() {
   const [selectedCategory, setSelectedCategory] = useState<MissionCategory | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: missions, isLoading, isError, refetch } = useMissions({
-    category: selectedCategory,
-    search: searchQuery,
-  });
+  const { data: missions, isLoading, isError, refetch } = useMissions();
+
+  const filteredMissions = useMemo(() => {
+    if (!missions) return [];
+
+    return missions.filter((mission) => {
+      const matchesCategory = !selectedCategory || mission.category === selectedCategory;
+      const matchesSearch =
+        !searchQuery ||
+        mission.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        mission.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [missions, searchQuery, selectedCategory]);
 
   if (isLoading) {
     return <LoadingSpinner message="Loading missions..." />;
@@ -25,7 +36,7 @@ export default function ExploreScreen() {
     return (
       <View style={styles.container}>
         <EmptyState
-          emoji="❌"
+          emoji=":x:"
           title="Error loading missions"
           message="Please try again later"
         />
@@ -35,7 +46,6 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
@@ -43,7 +53,7 @@ export default function ExploreScreen() {
             <Text style={styles.title}>Environmental Missions</Text>
           </View>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>🌍</Text>
+            <Text style={styles.badgeText}>:earth_africa:</Text>
           </View>
         </View>
         <SearchBar
@@ -53,15 +63,13 @@ export default function ExploreScreen() {
         />
       </View>
 
-      {/* Filters */}
       <MissionFilters
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
       />
 
-      {/* Mission List */}
       <FlatList
-        data={missions || []}
+        data={filteredMissions}
         renderItem={({ item }) => <MissionCard mission={item} />}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
@@ -75,7 +83,7 @@ export default function ExploreScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            emoji="🔍"
+            emoji=":mag:"
             title="No missions found"
             message="Try adjusting your filters or search query"
           />

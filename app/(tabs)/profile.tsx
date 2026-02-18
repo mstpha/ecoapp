@@ -12,10 +12,7 @@ export default function ExploreScreen() {
   const [selectedCategory, setSelectedCategory] = useState<MissionCategory | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: missions, isLoading, isError, refetch } = useMissions({
-    category: selectedCategory,
-    search: searchQuery,
-  });
+  const { data: missions, isLoading, isError, refetch } = useMissions();
 
   if (isLoading) {
     return <LoadingSpinner message="Loading missions..." />;

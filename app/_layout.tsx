@@ -1,69 +1,63 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Text } from 'react-native';
+import { queryClient } from '@/lib/queryClient';
+import { supabase } from '@/lib/supabase';
+import { Session } from '@supabase/supabase-js';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect, useState } from 'react';
 
-export default function TabLayout() {
+export default function RootLayout() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!session && !inAuthGroup) {
+      // Redirect to login if not authenticated
+      router.replace('/(auth)/login');
+    } else if (session && inAuthGroup) {
+      // Redirect to tabs if authenticated
+      router.replace('/(tabs)');
+    }
+  }, [session, segments, loading, router]);
+
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#10B981',
-        tabBarInactiveTintColor: '#8E8E93',
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#0A0A0A',
-          borderTopColor: '#2C2C2E',
-          borderTopWidth: 1,
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 68,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="🌍" color={color} />
-          ),
+    <QueryClientProvider client={queryClient}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#0A0A0A' },
         }}
-      />
-      <Tabs.Screen
-        name="my-missions"
-        options={{
-          title: 'My Missions',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="📅" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="👤" color={color} />
-          ),
-        }}
-      />
-    </Tabs>
-  );
-}
-
-
-function TabBarIcon({ name, color }: { name: string; color: string }) {
-  return (
-    <Text
-      style={{
-        fontSize: 24,
-        opacity: color === '#10B981' ? 1 : 0.5,
-      }}
-    >
-      {name}
-    </Text>
+      >
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="mission/[id]" 
+          options={{ 
+            headerShown: false,
+            presentation: 'card',
+          }} 
+        />
+      </Stack>
+    </QueryClientProvider>
   );
 }

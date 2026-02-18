@@ -11,7 +11,9 @@ buildscript {
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
   }
 }
-
+ext {
+    minSdkVersion = 24
+}
 allprojects {
   repositories {
     google()
