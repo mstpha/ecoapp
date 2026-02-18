@@ -9,9 +9,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  TextInput, ToastAndroid, TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function RegisterScreen() {
@@ -39,7 +38,8 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
+
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -54,18 +54,24 @@ export default function RegisterScreen() {
     if (error) {
       Alert.alert('Registration Failed', error.message);
     } else {
-      Alert.alert(
-        'Success!',
-        'Account created successfully. Please check your email to verify your account.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(auth)/login'),
-          },
-        ]
-      );
+      // Redirect to login
+      router.replace('/(auth)/login');
+
+      // Show toast
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(
+          'Check your email to verify your account',
+          ToastAndroid.LONG
+        );
+      } else {
+        Alert.alert(
+          'Verification Required',
+          'Check your email to verify your account'
+        );
+      }
     }
   };
+
 
   return (
     <KeyboardAvoidingView

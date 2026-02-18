@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import { ToastAndroid } from 'react-native';
+
 import {
   ActivityIndicator,
   Alert,
@@ -20,27 +22,49 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
+const handleLogin = async () => {
+  if (!email || !password) {
+    Alert.alert('Error', 'Please fill in all fields');
+    return;
+  }
 
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  setLoading(true);
 
-    setLoading(false);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-    if (error) {
-      Alert.alert('Login Failed', error.message);
+  setLoading(false);
+
+  if (error) {
+    Alert.alert('Login Failed', error.message);
+    return;
+  }
+
+  // 🔥 Check if email verified
+  if (!data.user?.email_confirmed_at) {
+    await supabase.auth.signOut();
+
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(
+        'Check your email to verify your account',
+        ToastAndroid.LONG
+      );
     } else {
-      // Navigate to main app
-      router.replace('/(tabs)');
+      Alert.alert(
+        'Verification Required',
+        'Check your email to verify your account'
+      );
     }
-  };
+
+    return;
+  }
+
+  // If verified → continue
+  router.replace('/(tabs)');
+};
+
 
   return (
     <KeyboardAvoidingView
