@@ -57,38 +57,51 @@ export async function updateUserProfile(updates: Partial<UserProfile>): Promise<
  */
 export async function fetchUserStats(): Promise<UserStats> {
   const { data: userData } = await supabase.auth.getUser();
-  
+
   if (!userData.user) {
     throw new Error('User not authenticated');
   }
 
-  // Get profile for completed missions
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('total_missions_completed')
-    .eq('id', userData.user.id)
-    .single();
-
-  // Get enrolled missions count
-  const { count: enrolledCount } = await supabase
-    .from('participations')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userData.user.id)
-    .eq('status', 'enrolled');
-
-  // Get upcoming missions count (enrolled missions with future dates)
+  const userId = userData.user.id;
   const now = new Date().toISOString();
-  const { count: upcomingCount } = await supabase
+
+  // Join participations with missions
+  const { data, error } = await supabase
     .from('participations')
-    .select('mission_id', { count: 'exact', head: true })
-    .eq('user_id', userData.user.id)
-    .eq('status', 'enrolled')
-    .gte('missions.date', now);
+    .select(`
+      id,
+      missions (
+        id,
+        date,
+        duration_hours
+      )
+    `)
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const participations = data ?? [];
+
+  let upcoming = 0;
+  let completed = 0;
+
+  participations.forEach((p: any) => {
+    const mission = p.missions;
+    if (!mission) return;
+
+    if (mission.date >= now) {
+      upcoming++;
+    } else {
+      completed++;
+    }
+  });
 
   return {
-    total_missions_completed: profile?.total_missions_completed || 0,
-    enrolled_missions_count: enrolledCount || 0,
-    upcoming_missions_count: upcomingCount || 0,
+    total_missions_completed: completed,
+    enrolled_missions_count: participations.length,
+    upcoming_missions_count: upcoming,
   };
 }
 

@@ -1,129 +1,138 @@
-import { EmptyState } from '@/components/EmptyState';
+import { Button } from '@/components/Button';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { MissionCard } from '@/components/MissionCard';
-import { MissionFilters } from '@/components/MissionFilters';
-import { SearchBar } from '@/components/SearchBar';
-import { useMissions } from '@/hooks/useMissions';
-import { MissionCategory } from '@/types/mission.types';
-import React, { useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useAuth } from '@/context/Authcontext';
+import { useProfile, useUserStats } from '@/hooks/useProfile';
+import { router } from 'expo-router';
+import React from 'react';
+import { Alert, ScrollView, Text, View } from 'react-native';
 
-export default function ExploreScreen() {
-  const [selectedCategory, setSelectedCategory] = useState<MissionCategory | undefined>();
-  const [searchQuery, setSearchQuery] = useState('');
+export default function ProfileScreen() {
+  const { user, signOut } = useAuth();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: stats, isLoading: statsLoading } = useUserStats();
 
-  const { data: missions, isLoading, isError, refetch } = useMissions();
-
-  if (isLoading) {
-    return <LoadingSpinner message="Loading missions..." />;
-  }
-
-  if (isError) {
-    return (
-      <View style={styles.container}>
-        <EmptyState
-          emoji="❌"
-          title="Error loading missions"
-          message="Please try again later"
-        />
-      </View>
+  const handleLogout = () => {
+    Alert.alert(
+      'Déconnexion',
+      'Voulez-vous vraiment vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/login');
+          },
+        },
+      ]
     );
+  };
+
+  if (profileLoading || statsLoading) {
+    return <LoadingSpinner message="Chargement du profil..." />;
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.greeting}>Discover</Text>
-            <Text style={styles.title}>Environmental Missions</Text>
+      <View className="bg-primary-600 px-6 py-8">
+        <View className="items-center">
+          <View className="w-24 h-24 rounded-full bg-white items-center justify-center mb-4">
+            <Text className="text-5xl">👤</Text>
           </View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>🌍</Text>
-          </View>
+          <Text className="text-white text-2xl font-bold mb-1">
+            {profile?.full_name || 'Utilisateur'}
+          </Text>
+          <Text className="text-primary-100">{user?.email}</Text>
         </View>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search missions..."
-        />
       </View>
 
-      {/* Filters */}
-      <MissionFilters
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-      />
+      {/* Statistics Cards */}
+      <View className="px-6 py-6">
+        <Text className="text-gray-900 text-xl font-bold mb-4">
+          Mes Statistiques
+        </Text>
 
-      {/* Mission List */}
-      <FlatList
-        data={missions || []}
-        renderItem={({ item }) => <MissionCard mission={item} />}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
-            tintColor="#10B981"
-          />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            emoji="🔍"
-            title="No missions found"
-            message="Try adjusting your filters or search query"
-          />
-        }
-      />
-    </View>
+        <View className="flex-row flex-wrap -mx-2">
+          {/* Missions Completed */}
+          <View className="w-1/2 px-2 mb-4">
+            <View className="bg-white rounded-xl p-4 shadow-sm">
+              <Text className="text-4xl mb-2">✅</Text>
+              <Text className="text-3xl font-bold text-gray-900">
+                {stats?.total_missions_completed ?? 0}
+              </Text>
+              <Text className="text-gray-600 text-sm">
+                Missions{'\n'}complétées
+              </Text>
+            </View>
+          </View>
+
+          {/* Missions Registered */}
+          <View className="w-1/2 px-2 mb-4">
+            <View className="bg-white rounded-xl p-4 shadow-sm">
+              <Text className="text-4xl mb-2">📋</Text>
+              <Text className="text-3xl font-bold text-gray-900">
+                {stats?.enrolled_missions_count ?? 0}
+              </Text>
+              <Text className="text-gray-600 text-sm">
+                Inscriptions{'\n'}actives
+              </Text>
+            </View>
+          </View>
+
+          {/* Upcoming Missions */}
+          <View className="w-1/2 px-2 mb-4">
+            <View className="bg-white rounded-xl p-4 shadow-sm">
+              <Text className="text-4xl mb-2">⏳</Text>
+              <Text className="text-3xl font-bold text-gray-900">
+                {stats?.upcoming_missions_count ?? 0}
+              </Text>
+              <Text className="text-gray-600 text-sm">
+                Missions{'\n'}à venir
+              </Text>
+            </View>
+          </View>
+
+          {/* Impact */}
+          <View className="w-1/2 px-2 mb-4">
+            <View className="bg-white rounded-xl p-4 shadow-sm">
+              <Text className="text-4xl mb-2">🌍</Text>
+              <Text className="text-3xl font-bold text-primary-600">
+                {(stats?.total_missions_completed ?? 0) > 0 ? '🎉' : '🚀'}
+              </Text>
+              <Text className="text-gray-600 text-sm">
+                Impact{'\n'}environnemental
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Actions */}
+      <View className="px-6 pb-8">
+        <Text className="text-gray-900 text-xl font-bold mb-4">Actions</Text>
+
+        <View className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+          <View className="flex-row items-center justify-between mb-2">
+            <Text className="text-gray-700">📧 Email</Text>
+            <Text className="text-gray-900 font-medium">{user?.email}</Text>
+          </View>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-gray-700">🆔 ID Utilisateur</Text>
+            <Text className="text-gray-500 text-xs">
+              {user?.id.substring(0, 8)}...
+            </Text>
+          </View>
+        </View>
+
+        <Button
+          title="Se déconnecter"
+          onPress={handleLogout}
+          variant="danger"
+          fullWidth
+        />
+      </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-  },
-  header: {
-    backgroundColor: '#0A0A0A',
-    paddingTop: 60,
-    paddingBottom: 8,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  greeting: {
-    fontSize: 16,
-    color: '#8E8E93',
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  badge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#10B981',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    fontSize: 24,
-  },
-  listContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-});
