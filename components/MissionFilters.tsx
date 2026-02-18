@@ -1,7 +1,7 @@
 import { MISSION_CATEGORIES } from '@/constants/categories';
 import { MissionCategory } from '@/types/mission.types';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { ScrollView, Text, TouchableOpacity } from 'react-native';
 
 interface MissionFiltersProps {
   selectedCategory?: MissionCategory;
@@ -13,81 +13,68 @@ export function MissionFilters({ selectedCategory, onSelectCategory }: MissionFi
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'center',
+      }}
     >
-      {/* All Categories */}
+      {/* All */}
       <TouchableOpacity
-        style={[
-          styles.filterButton,
-          !selectedCategory && styles.filterButtonActive,
-        ]}
         onPress={() => onSelectCategory(undefined)}
+        style={{
+          height: 40,
+          paddingHorizontal: 18,
+          borderRadius: 20,
+          backgroundColor: !selectedCategory ? '#10B981' : '#1f2937',
+          borderWidth: 1,
+          borderColor: !selectedCategory ? '#10B981' : '#374151',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
       >
-        <Text
-          style={[
-            styles.filterText,
-            !selectedCategory && styles.filterTextActive,
-          ]}
-        >
-          All
+        <Text style={{
+          fontSize: 14,
+          fontWeight: '700',
+          color: !selectedCategory ? '#ffffff' : '#d1d5db',
+        }}>
+          Tout
         </Text>
       </TouchableOpacity>
 
-      {/* Category Filters */}
-      {MISSION_CATEGORIES.map((category) => (
-        <TouchableOpacity
-          key={category.value}
-          style={[
-            styles.filterButton,
-            selectedCategory === category.value && styles.filterButtonActive,
-          ]}
-          onPress={() => onSelectCategory(category.value)}
-        >
-          <Text style={styles.emoji}>{category.emoji}</Text>
-          <Text
-            style={[
-              styles.filterText,
-              selectedCategory === category.value && styles.filterTextActive,
-            ]}
+      {MISSION_CATEGORIES.map((category) => {
+        const isActive = selectedCategory === category.value;
+        return (
+          <TouchableOpacity
+            key={category.value}
+            onPress={() => onSelectCategory(category.value)}
+            style={{
+              height: 40,
+              paddingHorizontal: 18,
+              borderRadius: 20,
+              backgroundColor: isActive ? '#10B981' : '#1f2937',
+              borderWidth: 1,
+              borderColor: isActive ? '#10B981' : '#374151',
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 6,
+            }}
           >
-            {category.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
+            <Text style={{ fontSize: 15, lineHeight: 20 }}>{category.emoji}</Text>
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '700',
+              color: isActive ? '#ffffff' : '#d1d5db',
+              lineHeight: 20,
+            }}>
+              {category.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#1C1C1E',
-    borderWidth: 1,
-    borderColor: '#2C2C2E',
-    gap: 6,
-  },
-  filterButtonActive: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  emoji: {
-    fontSize: 16,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  filterTextActive: {
-    color: '#FFFFFF',
-  },
-});

@@ -4,135 +4,162 @@ import { useAuth } from '@/context/Authcontext';
 import { useProfile, useUserStats } from '@/hooks/useProfile';
 import { router } from 'expo-router';
 import React from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: stats, isLoading: statsLoading } = useUserStats();
+  const insets = useSafeAreaInsets();
 
   const handleLogout = () => {
-    Alert.alert(
-      'Déconnexion',
-      'Voulez-vous vraiment vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Déconnexion',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/login');
-          },
-        },
-      ]
-    );
+    Toast.show({
+      type: 'info',
+      text1: 'Déconnexion',
+      text2: 'Appuyez pour confirmer',
+      onPress: async () => {
+        Toast.hide();
+        await signOut();
+        router.replace('/login');
+      },
+      visibilityTime: 5000,
+    });
   };
 
   if (profileLoading || statsLoading) {
     return <LoadingSpinner message="Chargement du profil..." />;
   }
 
+  const hours = stats?.total_hours_volunteered ?? 0;
+
+  const statCards = [
+    {
+      icon: '✅',
+      value: String(stats?.total_missions_completed ?? 0),
+      label: 'Missions\ncomplétées',
+      color: '#10b981',
+    },
+    {
+      icon: '📋',
+      value: String(stats?.enrolled_missions_count ?? 0),
+      label: 'Inscriptions\nactives',
+      color: '#10b981',
+    },
+    {
+      icon: '⏳',
+      value: String(stats?.upcoming_missions_count ?? 0),
+      label: 'Missions\nà venir',
+      color: '#10b981',
+    },
+    {
+      icon: '🌍',
+      // Impact = hours volunteered. Show hours or a motivating message if 0
+      value: hours > 0 ? `${hours}h` : '0h',
+      label: 'Heures\nbénévoles',
+      color: hours > 0 ? '#10b981' : '#6b7280',
+      subtitle: hours > 0 ? `Impact positif !` : 'Rejoignez une mission',
+    },
+  ];
+
   return (
-    <ScrollView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="bg-primary-600 px-6 py-8">
-        <View className="items-center">
-          <View className="w-24 h-24 rounded-full bg-white items-center justify-center mb-4">
-            <Text className="text-5xl">👤</Text>
-          </View>
-          <Text className="text-white text-2xl font-bold mb-1">
-            {profile?.full_name || 'Utilisateur'}
-          </Text>
-          <Text className="text-primary-100">{user?.email}</Text>
-        </View>
-      </View>
-
-      {/* Statistics Cards */}
-      <View className="px-6 py-6">
-        <Text className="text-gray-900 text-xl font-bold mb-4">
-          Mes Statistiques
-        </Text>
-
-        <View className="flex-row flex-wrap -mx-2">
-          {/* Missions Completed */}
-          <View className="w-1/2 px-2 mb-4">
-            <View className="bg-white rounded-xl p-4 shadow-sm">
-              <Text className="text-4xl mb-2">✅</Text>
-              <Text className="text-3xl font-bold text-gray-900">
-                {stats?.total_missions_completed ?? 0}
-              </Text>
-              <Text className="text-gray-600 text-sm">
-                Missions{'\n'}complétées
-              </Text>
+    <View style={{ flex: 1, backgroundColor: '#111827' }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+      >
+        {/* Header */}
+        <View style={{
+          backgroundColor: '#065f46',
+          paddingHorizontal: 24,
+          paddingTop: insets.top + 24,
+          paddingBottom: 32,
+        }}>
+          <View style={{ alignItems: 'center' }}>
+            <View style={{
+              width: 96, height: 96, borderRadius: 48,
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+              borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
+            }}>
+              <Text style={{ fontSize: 48 }}>👤</Text>
             </View>
-          </View>
-
-          {/* Missions Registered */}
-          <View className="w-1/2 px-2 mb-4">
-            <View className="bg-white rounded-xl p-4 shadow-sm">
-              <Text className="text-4xl mb-2">📋</Text>
-              <Text className="text-3xl font-bold text-gray-900">
-                {stats?.enrolled_missions_count ?? 0}
-              </Text>
-              <Text className="text-gray-600 text-sm">
-                Inscriptions{'\n'}actives
-              </Text>
-            </View>
-          </View>
-
-          {/* Upcoming Missions */}
-          <View className="w-1/2 px-2 mb-4">
-            <View className="bg-white rounded-xl p-4 shadow-sm">
-              <Text className="text-4xl mb-2">⏳</Text>
-              <Text className="text-3xl font-bold text-gray-900">
-                {stats?.upcoming_missions_count ?? 0}
-              </Text>
-              <Text className="text-gray-600 text-sm">
-                Missions{'\n'}à venir
-              </Text>
-            </View>
-          </View>
-
-          {/* Impact */}
-          <View className="w-1/2 px-2 mb-4">
-            <View className="bg-white rounded-xl p-4 shadow-sm">
-              <Text className="text-4xl mb-2">🌍</Text>
-              <Text className="text-3xl font-bold text-primary-600">
-                {(stats?.total_missions_completed ?? 0) > 0 ? '🎉' : '🚀'}
-              </Text>
-              <Text className="text-gray-600 text-sm">
-                Impact{'\n'}environnemental
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Actions */}
-      <View className="px-6 pb-8">
-        <Text className="text-gray-900 text-xl font-bold mb-4">Actions</Text>
-
-        <View className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-          <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-gray-700">📧 Email</Text>
-            <Text className="text-gray-900 font-medium">{user?.email}</Text>
-          </View>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-gray-700">🆔 ID Utilisateur</Text>
-            <Text className="text-gray-500 text-xs">
-              {user?.id.substring(0, 8)}...
+            <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 4 }}>
+              {profile?.full_name || 'Utilisateur'}
             </Text>
+            <Text style={{ color: '#6ee7b7' }}>{user?.email}</Text>
           </View>
         </View>
 
-        <Button
-          title="Se déconnecter"
-          onPress={handleLogout}
-          variant="danger"
-          fullWidth
-        />
-      </View>
-    </ScrollView>
+        {/* Stats */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 }}>
+          <Text style={{ color: '#f9fafb', fontSize: 18, fontWeight: 'bold', marginBottom: 16, paddingHorizontal: 8 }}>
+            Mes Statistiques
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            {statCards.map((card, i) => (
+              <View key={i} style={{ width: '50%', padding: 8 }}>
+                <View style={{
+                  backgroundColor: '#1f2937',
+                  borderRadius: 16, padding: 16,
+                  borderWidth: 1, borderColor: '#374151',
+                }}>
+                  <Text style={{ fontSize: 28, marginBottom: 8 }}>{card.icon}</Text>
+                  <Text style={{ fontSize: 26, fontWeight: 'bold', color: card.color, marginBottom: 2 }}>
+                    {card.value}
+                  </Text>
+                  <Text style={{ color: '#9ca3af', fontSize: 12, lineHeight: 18 }}>
+                    {card.label}
+                  </Text>
+                  {card.subtitle && (
+                    <Text style={{ color: '#6b7280', fontSize: 11, marginTop: 4 }}>
+                      {card.subtitle}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Info */}
+        <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}>
+          <Text style={{ color: '#f9fafb', fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+            Informations
+          </Text>
+
+          <View style={{
+            backgroundColor: '#1f2937', borderRadius: 16, padding: 16,
+            marginBottom: 16, borderWidth: 1, borderColor: '#374151',
+          }}>
+            <View style={{
+              flexDirection: 'row', alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 12, paddingBottom: 12,
+              borderBottomWidth: 1, borderBottomColor: '#374151',
+            }}>
+              <Text style={{ color: '#9ca3af' }}>📧 Email</Text>
+              <Text style={{ color: '#f9fafb', fontWeight: '500', flexShrink: 1, marginLeft: 8, textAlign: 'right' }} numberOfLines={1}>
+                {user?.email}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ color: '#9ca3af' }}>🆔 ID</Text>
+              <Text style={{ color: '#6b7280', fontSize: 12 }}>
+                {user?.id.substring(0, 8)}...
+              </Text>
+            </View>
+          </View>
+
+          <Button
+            title="Se déconnecter"
+            onPress={handleLogout}
+            variant="danger"
+            fullWidth
+          />
+        </View>
+      </ScrollView>
+    </View>
   );
 }

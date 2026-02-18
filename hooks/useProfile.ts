@@ -1,4 +1,6 @@
 import { useAuth } from '@/context/Authcontext';
+import { fetchUserStats } from '@/lib/api/users';
+import { queryKeys } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { UserProfile, UserStats } from '@/types/user.types';
 import { useQuery } from '@tanstack/react-query';
@@ -41,45 +43,6 @@ export async function fetchProfile(userId: string): Promise<UserProfile> {
 }
 
 /* =========================
-   FETCH USER STATS
-========================= */
-
-export async function fetchUserStats(userId: string): Promise<UserStats> {
-  // 1️⃣ Get missions completed from profile
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('missions_completed')
-    .eq('id', userId)
-    .single();
-
-  if (profileError) throw new Error(profileError.message);
-
-  // 2️⃣ Count enrolled (registered) missions
-  const { count: enrolledCount, error: enrolledError } = await supabase
-    .from('participations')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'registered');
-
-  if (enrolledError) throw new Error(enrolledError.message);
-
-  // 3️⃣ Count upcoming missions
-  const { count: upcomingCount, error: upcomingError } = await supabase
-    .from('participations')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'upcoming');
-
-  if (upcomingError) throw new Error(upcomingError.message);
-
-  return {
-    total_missions_completed: profile?.missions_completed ?? 0,
-    enrolled_missions_count: enrolledCount ?? 0,
-    upcoming_missions_count: upcomingCount ?? 0,
-  };
-}
-
-/* =========================
    REACT QUERY HOOKS
 ========================= */
 
@@ -90,18 +53,26 @@ export function useProfile() {
     queryKey: profileKeys.detail(user?.id ?? ''),
     queryFn: () => fetchProfile(user!.id),
     enabled: !!user,
-    staleTime: 1000 * 60 * 10, // 10 min
-    gcTime: 1000 * 60 * 30,    // 30 min
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
   });
 }
 
+// Single source of truth for user stats — delegates to lib/api/users.ts fetchUserStats
+// which correctly computes stats from participations joined with missions by date
 export function useUserStats() {
-  const { user } = useAuth();
+  const { data: userData } = useQuery({
+    queryKey: ['user-session'],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getUser();
+      return data.user;
+    },
+  });
 
   return useQuery<UserStats>({
-    queryKey: profileKeys.stats(user?.id ?? ''),
-    queryFn: () => fetchUserStats(user!.id),
-    enabled: !!user,
+    queryKey: queryKeys.users.stats(userData?.id || ''),
+    queryFn: fetchUserStats,
+    enabled: !!userData?.id,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
   });

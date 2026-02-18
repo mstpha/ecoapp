@@ -9,8 +9,9 @@ export interface UserProfile {
 
 export interface UserStats {
   total_missions_completed: number;
-  enrolled_missions_count: number;
-  upcoming_missions_count: number;
+  enrolled_missions_count: number;   // active (non-cancelled) only
+  upcoming_missions_count: number;   // future non-cancelled only
+  total_hours_volunteered: number;   // hours from past missions
 }
 
 export interface UpdateProfileInput {

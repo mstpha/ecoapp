@@ -1,24 +1,26 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
 import { Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function TabLayout() {
+export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#10B981',
-        tabBarInactiveTintColor: '#8E8E93',
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#0A0A0A',
-          borderTopColor: '#2C2C2E',
+          backgroundColor: '#111827',
+          borderTopColor: '#1f2937',
           borderTopWidth: 1,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 8,
-          height: 68,
         },
+        tabBarActiveTintColor: '#10b981',
+        tabBarInactiveTintColor: '#6b7280',
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
         },
       }}
@@ -26,43 +28,24 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="🌍" color={color} />
-          ),
+          title: 'Missions',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🌿</Text>,
         }}
       />
       <Tabs.Screen
         name="my-missions"
         options={{
-          title: 'My Missions',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="📅" color={color} />
-          ),
+          title: 'Mes missions',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📋</Text>,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="👤" color={color} />
-          ),
+          title: 'Profil',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text>,
         }}
       />
     </Tabs>
-  );
-}
-
-function TabBarIcon({ name, color }: { name: string; color: string }) {
-  return (
-    <Text
-      style={{
-        fontSize: 24,
-        opacity: color === '#10B981' ? 1 : 0.5,
-      }}
-    >
-      {name}
-    </Text>
   );
 }

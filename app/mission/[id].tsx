@@ -1,6 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 import { Button } from '../../components/Button';
 import { ErrorMessage } from '../../components/ErrorMessage';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
@@ -14,11 +16,20 @@ const categoryLabels: Record<string, string> = {
   awareness: 'Sensibilisation',
 };
 
+const categoryEmoji: Record<string, string> = {
+  cleanup: '🏖️',
+  planting: '🌳',
+  workshop: '♻️',
+  recycling: '📦',
+  awareness: '📢',
+};
+
 export default function MissionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: mission, isLoading, isError, error } = useMission(id);
   const registerMutation = useRegisterMission();
   const cancelMutation = useCancelParticipation();
+  const insets = useSafeAreaInsets();
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -32,63 +43,45 @@ export default function MissionDetailScreen() {
     });
   };
 
-  const handleRegister = () => {
-    Alert.alert(
-      'Inscription',
-      'Voulez-vous vous inscrire à cette mission ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Confirmer',
-          onPress: async () => {
-            try {
-              await registerMutation.mutateAsync(id);
-              Alert.alert('Succès', 'Vous êtes inscrit à cette mission !');
-            } catch (error) {
-              Alert.alert(
-                'Erreur',
-                error instanceof Error ? error.message : "Erreur lors de l'inscription"
-              );
-            }
-          },
-        },
-      ]
-    );
+  const handleRegister = async () => {
+    try {
+      await registerMutation.mutateAsync(id);
+      Toast.show({
+        type: 'success',
+        text1: 'Inscription confirmée !',
+        text2: 'Vous êtes inscrit à cette mission.',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: "Erreur d'inscription",
+        text2: error instanceof Error ? error.message : "Une erreur est survenue",
+      });
+    }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (!mission?.userParticipationId) return;
-
-    Alert.alert(
-      'Annulation',
-      'Voulez-vous annuler votre participation à cette mission ?',
-      [
-        { text: 'Non', style: 'cancel' },
-        {
-          text: 'Oui, annuler',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelMutation.mutateAsync({
-                participationId: mission.userParticipationId!,
-                missionId: id,
-              });
-              Alert.alert('Annulé', 'Votre participation a été annulée');
-            } catch (error) {
-              Alert.alert(
-                'Erreur',
-                error instanceof Error ? error.message : "Erreur lors de l'annulation"
-              );
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await cancelMutation.mutateAsync({
+        participationId: mission.userParticipationId!,
+        missionId: id,
+      });
+      Toast.show({
+        type: 'info',
+        text1: 'Participation annulée',
+        text2: 'Vous pouvez vous réinscrire à tout moment.',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: "Erreur d'annulation",
+        text2: error instanceof Error ? error.message : "Une erreur est survenue",
+      });
+    }
   };
 
-  if (isLoading) {
-    return <LoadingSpinner message="Chargement de la mission..." />;
-  }
+  if (isLoading) return <LoadingSpinner message="Chargement de la mission..." />;
 
   if (isError || !mission) {
     return (
@@ -101,101 +94,120 @@ export default function MissionDetailScreen() {
 
   const placesLeft = mission.max_participants - mission.current_participants;
   const isFull = placesLeft === 0;
+  // isCancelled = had a participation but it's cancelled (not currently registered)
+  const isCancelled = !mission.isUserRegistered && !!mission.userParticipationId;
 
   return (
-    <View className="flex-1 bg-gray-900">
-      <ScrollView className="flex-1">
-        {/* Header Image Placeholder */}
-        <View className="bg-green-600 h-48 items-center justify-center">
-          <Text className="text-7xl">
-            {mission.category === 'cleanup' && '🏖️'}
-            {mission.category === 'planting' && '🌳'}
-            {mission.category === 'workshop' && '♻️'}
-            {mission.category === 'recycling' && '📦'}
-            {mission.category === 'awareness' && '📢'}
-          </Text>
+    <View style={{ flex: 1, backgroundColor: '#111827' }}>
+      <ScrollView style={{ flex: 1 }}>
+        {/* Hero */}
+        <View style={{ backgroundColor: '#065f46', height: 192, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 72 }}>{categoryEmoji[mission.category] ?? '🌿'}</Text>
         </View>
 
-        {/* Content */}
-        <View className="px-6 py-6">
-          {/* Category Badge */}
-          <View className="bg-green-500/20 px-4 py-2 rounded-full self-start mb-4">
-            <Text className="text-green-400 font-semibold">
+        <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
+          {/* Category badge */}
+          <View style={{
+            backgroundColor: 'rgba(16,185,129,0.15)',
+            paddingHorizontal: 16, paddingVertical: 8,
+            borderRadius: 999, alignSelf: 'flex-start', marginBottom: 16,
+            borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)',
+          }}>
+            <Text style={{ color: '#10b981', fontWeight: '600' }}>
               {categoryLabels[mission.category]}
             </Text>
           </View>
 
           {/* Title */}
-          <Text className="text-3xl font-bold text-white mb-4">
+          <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 12 }}>
             {mission.title}
           </Text>
 
           {/* Description */}
-          <Text className="text-gray-300 text-base leading-6 mb-6">
+          <Text style={{ color: '#d1d5db', fontSize: 15, lineHeight: 24, marginBottom: 24 }}>
             {mission.description}
           </Text>
 
+          {/* Cancelled notice */}
+          {isCancelled && (
+            <View style={{
+              backgroundColor: 'rgba(239,68,68,0.1)',
+              borderWidth: 1, borderColor: '#ef4444',
+              borderRadius: 12, padding: 16, marginBottom: 16,
+              flexDirection: 'row', alignItems: 'center', gap: 10,
+            }}>
+              <Text style={{ fontSize: 20 }}>❌</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#f87171', fontWeight: '700', marginBottom: 2 }}>
+                  Inscription annulée
+                </Text>
+                <Text style={{ color: '#9ca3af', fontSize: 13 }}>
+                  Vous avez annulé votre participation. Vous pouvez vous réinscrire ci-dessous.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Enrolled badge */}
+          {mission.isUserRegistered && (
+            <View style={{
+              backgroundColor: 'rgba(16,185,129,0.1)',
+              borderWidth: 1, borderColor: '#10b981',
+              borderRadius: 12, padding: 16, marginBottom: 16,
+            }}>
+              <Text style={{ color: '#10b981', fontWeight: '600', textAlign: 'center' }}>
+                ✓ Vous êtes inscrit à cette mission
+              </Text>
+            </View>
+          )}
+
           {/* Details */}
-          <View className="bg-gray-800 rounded-xl p-4 mb-6">
-            <View className="flex-row items-start mb-3 pb-3 border-b border-gray-700">
-              <Text className="text-2xl mr-3">📅</Text>
-              <View className="flex-1">
-                <Text className="text-gray-400 text-sm">Date et heure</Text>
-                <Text className="text-white font-semibold mt-1">
-                  {formatDate(mission.date)}
-                </Text>
+          <View style={{
+            backgroundColor: '#1f2937', borderRadius: 16, padding: 16,
+            marginBottom: 24, borderWidth: 1, borderColor: '#374151',
+          }}>
+            {[
+              { icon: '📅', label: 'Date et heure', value: formatDate(mission.date) },
+              { icon: '📍', label: 'Lieu', value: mission.location },
+              { icon: '⏱️', label: 'Durée', value: `${mission.duration_hours} ${mission.duration_hours === 1 ? 'heure' : 'heures'}` },
+            ].map((row, i, arr) => (
+              <View key={i} style={{
+                flexDirection: 'row', alignItems: 'flex-start',
+                paddingVertical: 12,
+                borderBottomWidth: i < arr.length - 1 ? 1 : 0,
+                borderBottomColor: '#374151',
+              }}>
+                <Text style={{ fontSize: 20, marginRight: 12 }}>{row.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#6b7280', fontSize: 12, marginBottom: 4 }}>{row.label}</Text>
+                  <Text style={{ color: '#f9fafb', fontWeight: '600' }}>{row.value}</Text>
+                </View>
               </View>
-            </View>
+            ))}
 
-            <View className="flex-row items-start mb-3 pb-3 border-b border-gray-700">
-              <Text className="text-2xl mr-3">📍</Text>
-              <View className="flex-1">
-                <Text className="text-gray-400 text-sm">Lieu</Text>
-                <Text className="text-white font-semibold mt-1">
-                  {mission.location}
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-start mb-3 pb-3 border-b border-gray-700">
-              <Text className="text-2xl mr-3">⏱️</Text>
-              <View className="flex-1">
-                <Text className="text-gray-400 text-sm">Durée</Text>
-                <Text className="text-white font-semibold mt-1">
-                  {mission.duration_hours} {mission.duration_hours === 1 ? 'heure' : 'heures'}
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-start">
-              <Text className="text-2xl mr-3">👥</Text>
-              <View className="flex-1">
-                <Text className="text-gray-400 text-sm">Participants</Text>
-                <Text
-                  className={`font-semibold mt-1 ${
-                    isFull ? 'text-red-400' : 'text-green-400'
-                  }`}
-                >
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingTop: 12 }}>
+              <Text style={{ fontSize: 20, marginRight: 12 }}>👥</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#6b7280', fontSize: 12, marginBottom: 4 }}>Participants</Text>
+                <Text style={{ fontWeight: '600', color: isFull ? '#f87171' : '#10b981' }}>
                   {mission.current_participants}/{mission.max_participants} inscrits
                   {!isFull && ` • ${placesLeft} ${placesLeft === 1 ? 'place restante' : 'places restantes'}`}
                 </Text>
               </View>
             </View>
           </View>
-
-          {/* Registration Status */}
-          {mission.isUserRegistered && (
-            <View className="bg-green-500/20 border border-green-500 rounded-xl p-4 mb-4">
-              <Text className="text-green-400 font-semibold text-center">
-                ✓ Vous êtes inscrit à cette mission
-              </Text>
-            </View>
-          )}
         </View>
       </ScrollView>
 
-      {/* Action Button */}
-      <View className="px-6 py-4 bg-gray-900 border-t border-gray-800">
+      {/* Action button */}
+      <View style={{
+        paddingHorizontal: 24,
+        paddingTop: 12,
+        paddingBottom: insets.bottom + 12,
+        backgroundColor: '#111827',
+        borderTopWidth: 1,
+        borderTopColor: '#1f2937',
+      }}>
         {mission.isUserRegistered ? (
           <Button
             title="Annuler ma participation"
@@ -203,6 +215,15 @@ export default function MissionDetailScreen() {
             variant="danger"
             fullWidth
             loading={cancelMutation.isPending}
+          />
+        ) : isCancelled ? (
+          // Re-enroll button for cancelled missions
+          <Button
+            title={isFull ? 'Mission complète' : "🔄  Se réinscrire"}
+            onPress={handleRegister}
+            fullWidth
+            disabled={isFull}
+            loading={registerMutation.isPending}
           />
         ) : (
           <Button

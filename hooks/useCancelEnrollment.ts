@@ -12,26 +12,32 @@ export function useCancelEnrollment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ participationId }: CancelEnrollmentParams) => 
+    mutationFn: ({ participationId }: CancelEnrollmentParams) =>
       cancelEnrollment(participationId),
-    
-    onSuccess: async (data, { missionId }) => {
-      // Invalidate mission detail to update participant count
-      await queryClient.invalidateQueries({ 
-        queryKey: queryKeys.missions.detail(missionId) 
+
+    onSuccess: async (_, { missionId }) => {
+      const { data: userData } = await supabase.auth.getUser();
+
+      // Update mission detail (participant count)
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.missions.detail(missionId),
       });
 
-      // Invalidate my missions list to remove cancelled mission
-      const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
-        await queryClient.invalidateQueries({ 
-          queryKey: queryKeys.participations.mine(userData.user.id) 
+        // Refresh my missions list so cancelled mission appears
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.participations.mine(userData.user.id),
+        });
+
+        // Refresh stats so profile counts update immediately
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.users.stats(userData.user.id),
         });
       }
 
-      // Invalidate missions list
-      await queryClient.invalidateQueries({ 
-        queryKey: queryKeys.missions.lists() 
+      // Update missions list (available spots)
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.missions.lists(),
       });
     },
   });

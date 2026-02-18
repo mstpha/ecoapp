@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { Mission, MissionWithUserStatus } from '../types/mission.types';
 import { Participation } from '../types/participation.types';
 
-// Query Keys
 export const missionKeys = {
   all: ['missions'] as const,
   lists: () => [...missionKeys.all, 'list'] as const,
@@ -12,13 +11,11 @@ export const missionKeys = {
   userMissions: (userId: string) => ['missions', 'user', userId] as const,
 };
 
-// Get current user helper
 async function getCurrentUser() {
   const { data: { user } } = await supabase.auth.getUser();
   return user;
 }
 
-// Fetch all missions
 export async function fetchMissions(): Promise<Mission[]> {
   const { data, error } = await supabase
     .from('missions')
@@ -26,14 +23,16 @@ export async function fetchMissions(): Promise<Mission[]> {
     .gte('date', new Date().toISOString())
     .order('date', { ascending: true });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  if (error) throw new Error(error.message);
   return data || [];
 }
 
-// Fetch single mission with participation status
+/**
+ * Fetch single mission with participation status.
+ * Returns isUserRegistered=true only if enrolled.
+ * Returns userParticipationId for ANY status (enrolled or cancelled)
+ * so the detail screen can show re-enroll button.
+ */
 export async function fetchMission(
   id: string,
   userId?: string
@@ -47,33 +46,28 @@ export async function fetchMission(
   if (error) throw new Error(error.message);
 
   if (userId) {
+    // Fetch ANY participation (enrolled OR cancelled) for this user+mission
     const { data: participation } = await supabase
       .from('participations')
       .select('id, status')
       .eq('mission_id', id)
       .eq('user_id', userId)
-      .eq('status', 'enrolled')
       .maybeSingle();
 
     return {
       ...mission,
-      isUserRegistered: !!participation,
-      userParticipationId: participation?.id,
+      isUserRegistered: participation?.status === 'enrolled',
+      userParticipationId: participation?.id, // present for cancelled too
     };
   }
 
-  return mission;
+  return { ...mission, isUserRegistered: false };
 }
 
-// Fetch user's missions
 export async function fetchUserMissions(userId: string): Promise<MissionWithUserStatus[]> {
   const { data, error } = await supabase
     .from('participations')
-    .select(`
-      id,
-      status,
-      missions (*)
-    `)
+    .select(`id, status, missions (*)`)
     .eq('user_id', userId)
     .eq('status', 'enrolled')
     .order('enrolled_at', { ascending: false });
@@ -89,12 +83,10 @@ export async function fetchUserMissions(userId: string): Promise<MissionWithUser
   );
 }
 
-// Register for a mission
 export async function registerForMission(
   missionId: string,
   userId: string
 ): Promise<Participation> {
-  // Check current participants
   const { data: mission, error: fetchError } = await supabase
     .from('missions')
     .select('current_participants, max_participants')
@@ -107,26 +99,44 @@ export async function registerForMission(
     throw new Error('Cette mission est complète');
   }
 
-  // Create participation
-  const { data, error } = await supabase
+  // Check for existing participation (any status)
+  const { data: existing } = await supabase
     .from('participations')
-    .insert({
-      mission_id: missionId,
-      user_id: userId,
-      status: 'enrolled',
-    })
-    .select()
-    .single();
+    .select('id, status')
+    .eq('mission_id', missionId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  let data;
+  let error;
+
+  if (existing) {
+    if (existing.status === 'enrolled') {
+      throw new Error('Vous êtes déjà inscrit à cette mission');
+    }
+    // Re-enroll: update cancelled row
+    ({ data, error } = await supabase
+      .from('participations')
+      .update({ status: 'enrolled' })
+      .eq('id', existing.id)
+      .select()
+      .single());
+  } else {
+    // Fresh enrollment
+    ({ data, error } = await supabase
+      .from('participations')
+      .insert({ mission_id: missionId, user_id: userId, status: 'enrolled' })
+      .select()
+      .single());
+  }
 
   if (error) throw new Error(error.message);
 
-  // Update current participants count
   await supabase.rpc('increment_participants', { mission_id: missionId });
 
   return data;
 }
 
-// Cancel participation
 export async function cancelParticipation(
   participationId: string,
   missionId: string
@@ -138,7 +148,6 @@ export async function cancelParticipation(
 
   if (error) throw new Error(error.message);
 
-  // Decrement participants count
   await supabase.rpc('decrement_participants', { mission_id: missionId });
 }
 
@@ -146,17 +155,15 @@ export async function cancelParticipation(
 // REACT QUERY HOOKS
 // ============================================
 
-// Get all missions
 export function useMissions() {
   return useQuery({
     queryKey: missionKeys.lists(),
-    queryFn: () => fetchMissions(),
+    queryFn: fetchMissions,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
   });
 }
 
-// Get single mission by ID
 export function useMission(id: string) {
   return useQuery({
     queryKey: missionKeys.detail(id),
@@ -164,12 +171,11 @@ export function useMission(id: string) {
       const user = await getCurrentUser();
       return fetchMission(id, user?.id);
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0, // Always fresh so cancelled/enrolled state is accurate
     gcTime: 1000 * 60 * 30,
   });
 }
 
-// Get user's registered missions
 export function useUserMissions() {
   return useQuery({
     queryKey: ['user-missions'],
@@ -183,7 +189,6 @@ export function useUserMissions() {
   });
 }
 
-// Register for a mission (with Optimistic UI)
 export function useRegisterMission() {
   const queryClient = useQueryClient();
 
@@ -193,84 +198,36 @@ export function useRegisterMission() {
       if (!user) throw new Error('Not authenticated');
       return registerForMission(missionId, user.id);
     },
-    onMutate: async (missionId) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: missionKeys.detail(missionId) });
-
-      // Snapshot previous value
-      const previousMission = queryClient.getQueryData<MissionWithUserStatus>(
-        missionKeys.detail(missionId)
-      );
-
-      // Optimistically update
-      if (previousMission) {
-        queryClient.setQueryData<MissionWithUserStatus>(
-          missionKeys.detail(missionId),
-          {
-            ...previousMission,
-            isUserRegistered: true,
-            current_participants: previousMission.current_participants + 1,
-          }
-        );
-      }
-
-      return { previousMission };
-    },
-    onError: (_err, missionId, context) => {
-      // Rollback on error
-      if (context?.previousMission) {
-        queryClient.setQueryData(missionKeys.detail(missionId), context.previousMission);
-      }
-    },
-    onSuccess: async () => {
+    onSuccess: async (_, missionId) => {
       const user = await getCurrentUser();
-      // Invalidate queries to refetch
+      // Refetch mission detail so button state updates
+      queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) });
       queryClient.invalidateQueries({ queryKey: missionKeys.lists() });
       if (user) {
         queryClient.invalidateQueries({ queryKey: missionKeys.userMissions(user.id) });
+        // Also invalidate participations for my-missions screen
+        queryClient.invalidateQueries({ queryKey: ['participations', 'mine', user.id] });
+        // Invalidate stats
+        queryClient.invalidateQueries({ queryKey: ['users', 'stats', user.id] });
       }
     },
   });
 }
 
-// Cancel participation (with Optimistic UI)
 export function useCancelParticipation() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ participationId, missionId }: { participationId: string; missionId: string }) =>
       cancelParticipation(participationId, missionId),
-    onMutate: async ({ missionId }) => {
-      await queryClient.cancelQueries({ queryKey: missionKeys.detail(missionId) });
-
-      const previousMission = queryClient.getQueryData<MissionWithUserStatus>(
-        missionKeys.detail(missionId)
-      );
-
-      if (previousMission) {
-        queryClient.setQueryData<MissionWithUserStatus>(
-          missionKeys.detail(missionId),
-          {
-            ...previousMission,
-            isUserRegistered: false,
-            userParticipationId: undefined,
-            current_participants: previousMission.current_participants - 1,
-          }
-        );
-      }
-
-      return { previousMission };
-    },
-    onError: (_err, { missionId }, context) => {
-      if (context?.previousMission) {
-        queryClient.setQueryData(missionKeys.detail(missionId), context.previousMission);
-      }
-    },
-    onSuccess: async () => {
+    onSuccess: async (_, { missionId }) => {
       const user = await getCurrentUser();
+      queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) });
       queryClient.invalidateQueries({ queryKey: missionKeys.lists() });
       if (user) {
         queryClient.invalidateQueries({ queryKey: missionKeys.userMissions(user.id) });
+        queryClient.invalidateQueries({ queryKey: ['participations', 'mine', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['users', 'stats', user.id] });
       }
     },
   });
