@@ -53,7 +53,7 @@ export default function ExploreScreen() {
             <Text style={styles.title}>Environmental Missions</Text>
           </View>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>:earth_africa:</Text>
+            <Text style={styles.badgeText}>🌍</Text>          
           </View>
         </View>
         <SearchBar

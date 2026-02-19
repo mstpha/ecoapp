@@ -22,12 +22,14 @@ export async function fetchProfile(userId: string): Promise<UserProfile> {
       id,
       full_name,
       avatar_url,
-      missions_completed,
+      total_missions_completed,
       created_at,
       updated_at
     `)
     .eq('id', userId)
     .single();
+
+
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error('Profile not found');
@@ -36,7 +38,7 @@ export async function fetchProfile(userId: string): Promise<UserProfile> {
     id: data.id,
     full_name: data.full_name,
     avatar_url: data.avatar_url,
-    total_missions_completed: data.missions_completed ?? 0,
+    total_missions_completed: data.total_missions_completed ?? 0,
     created_at: data.created_at,
     updated_at: data.updated_at,
   };

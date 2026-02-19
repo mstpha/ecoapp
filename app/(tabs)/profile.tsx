@@ -86,7 +86,7 @@ export default function ProfileScreen() {
               <Text style={{ fontSize: 48 }}>👤</Text>
             </View>
             <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 4 }}>
-              {profile?.full_name || 'Utilisateur'}
+              {profile?.full_name || 'Utilisateur'} .
             </Text>
             <Text style={{ color: '#6ee7b7' }}>{user?.email}</Text>
           </View>
@@ -145,9 +145,9 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={{ color: '#9ca3af' }}>🆔 ID</Text>
+              <Text style={{ color: '#9ca3af' }}>🆔 Full Name</Text>
               <Text style={{ color: '#6b7280', fontSize: 12 }}>
-                {user?.id.substring(0, 8)}...
+                {profile?.full_name}
               </Text>
             </View>
           </View>
